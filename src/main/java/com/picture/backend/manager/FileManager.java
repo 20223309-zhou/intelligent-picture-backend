@@ -41,18 +41,23 @@ public class FileManager {
         // 校验图片
         validPicture(multipartFile);
         // 图片上传地址
+        // 生成随机的16位UUID
         String uuid = RandomUtil.randomString(16);
         String originFilename = multipartFile.getOriginalFilename();
+        // 格式化文件名
         String uploadFilename = String.format("%s_%s.%s", DateUtil.formatDate(new Date()), uuid,
                 FileUtil.getSuffix(originFilename));
+        // 定义文件存储路径
         String uploadPath = String.format("/%s/%s", uploadPathPrefix, uploadFilename);
         File file = null;
         try {
             // 创建临时文件
             file = File.createTempFile(uploadPath, null);
+            //读取 multipartFile 中的文件内容,写入到之前创建的临时文件 file
             multipartFile.transferTo(file);
             // 上传图片
             PutObjectResult putObjectResult = cosManager.putPictureObject(uploadPath, file);
+            // 获得上传的图片信息
             ImageInfo imageInfo = putObjectResult.getCiUploadResult().getOriginalInfo().getImageInfo();
             // 封装返回结果
             UploadPictureResult uploadPictureResult = new UploadPictureResult();

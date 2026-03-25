@@ -39,6 +39,17 @@ import static com.picture.backend.constant.UserConstant.USER_LOGIN_STATE;
 public class UserServiceImpl extends ServiceImpl<UserMapper, User> implements UserService{
 
     /**
+     * 判断是否为管理员
+     * @param user
+     * @return
+     */
+    @Override
+    public boolean isAdmin(User user) {
+        return user != null && UserRoleEnums.ADMIN.getValue().equals(user.getUserRole());
+    }
+
+
+    /**
      * 用户注册
      *
      * @param userRegisterRequest

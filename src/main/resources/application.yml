@@ -6,6 +6,10 @@ server:
 spring:
   application:
     name: intelligent-picture-service
+  # 文件上传配置
+  servlet:
+    multipart:
+      max-file-size: 10MB
   #指定运行环境
   profiles:
     active: dev
