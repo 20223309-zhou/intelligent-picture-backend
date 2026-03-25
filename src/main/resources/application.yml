@@ -1,0 +1,36 @@
+server:
+  port: 8080
+  servlet:
+    context-path: /api
+
+spring:
+  application:
+    name: intelligent-picture-service
+  #指定运行环境
+  profiles:
+    active: dev
+# knife4j接口文档配置
+knife4j:
+  enable: true
+  openapi:
+    title: 智能云图库官方文档
+    description: 智能云图库官方文档
+    version: v1.0
+    group:
+      default:
+        api-rule: package
+        api-rule-resources:
+          - com.picture.backend.controller
+# mybatis-plus配置
+mybatis-plus:
+  configuration:
+    # MyBatis 配置
+    map-underscore-to-camel-case: false
+    # 仅在开发阶段才打印日志
+    log-impl: org.apache.ibatis.logging.stdout.StdOutImpl
+  global-config:
+    db-config:
+      # 逻辑删除字段
+      logic-delete-field: isDelete
+      logic-delete-value: 1
+      logic-not-delete-value: 0
