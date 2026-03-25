@@ -8,7 +8,7 @@ import com.picture.backend.common.ResultUtils;
 import com.picture.backend.constant.UserConstant;
 import com.picture.backend.exception.BusinessException;
 import com.picture.backend.exception.ErrorCode;
-import com.picture.backend.model.dto.*;
+import com.picture.backend.model.dto.user.*;
 import com.picture.backend.model.entity.User;
 import com.picture.backend.model.vo.LoginUserVO;
 import com.picture.backend.model.vo.UserVO;

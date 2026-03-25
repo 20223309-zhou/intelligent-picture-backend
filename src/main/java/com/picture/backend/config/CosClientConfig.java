@@ -39,7 +39,8 @@ public class CosClientConfig {
      * 桶名  
      */  
     private String bucket;  
-  
+
+    // 初始化COSClient
     @Bean
     public COSClient cosClient() {
         // 初始化用户身份信息(secretId, secretKey)  

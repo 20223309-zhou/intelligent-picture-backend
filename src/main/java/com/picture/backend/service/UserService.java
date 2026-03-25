@@ -1,8 +1,8 @@
 package com.picture.backend.service;
 
 import com.baomidou.mybatisplus.core.conditions.query.QueryWrapper;
-import com.picture.backend.model.dto.UserQueryRequest;
-import com.picture.backend.model.dto.UserRegisterRequest;
+import com.picture.backend.model.dto.user.UserQueryRequest;
+import com.picture.backend.model.dto.user.UserRegisterRequest;
 import com.picture.backend.model.entity.User;
 import com.baomidou.mybatisplus.extension.service.IService;
 import com.picture.backend.model.vo.LoginUserVO;
