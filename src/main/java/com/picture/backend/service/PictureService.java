@@ -3,6 +3,8 @@ package com.picture.backend.service;
 import com.baomidou.mybatisplus.core.conditions.query.QueryWrapper;
 import com.baomidou.mybatisplus.extension.plugins.pagination.Page;
 import com.picture.backend.model.dto.picture.PictureQueryRequest;
+import com.picture.backend.model.dto.picture.PictureReviewRequest;
+import com.picture.backend.model.dto.picture.PictureUploadByBatchRequest;
 import com.picture.backend.model.dto.picture.PictureUploadRequest;
 import com.picture.backend.model.entity.Picture;
 import com.baomidou.mybatisplus.extension.service.IService;
@@ -22,21 +24,69 @@ public interface PictureService extends IService<Picture> {
     /**
      * 上传图片
      *
-     * @param multipartFile
+     * @param inputSource
      * @param pictureUploadRequest
      * @param loginUser
      * @return
      */
-    PictureVO uploadPicture(MultipartFile multipartFile,
+    PictureVO uploadPicture(Object inputSource,
                             PictureUploadRequest pictureUploadRequest,
                             User loginUser);
 
-
+    /**
+     * 获取图片查询条件
+     *
+     * @param pictureQueryRequest
+     * @return
+     */
     QueryWrapper<Picture> getQueryWrapper(PictureQueryRequest pictureQueryRequest);
 
+    /**
+     * 图片实体类转换成VO
+     *
+     * @param picture
+     * @param request
+     * @return
+     */
     PictureVO getPictureVO(Picture picture, HttpServletRequest request);
 
+    /**
+     * picture集合转换成VO集合
+     */
     Page<PictureVO> getPictureVOPage(Page<Picture> picturePage, HttpServletRequest request);
 
+    /**
+     * 校验图片合法性
+     *
+     * @param picture
+     */
     void validPicture(Picture picture);
+
+    /**
+     * 图片审核
+     *
+     * @param pictureReviewRequest
+     * @param loginUser
+     */
+    void doPictureReview(PictureReviewRequest pictureReviewRequest, User loginUser);
+    /**
+     * 填充图片审核参数
+     *
+     * @param picture
+     * @param loginUser
+     */
+    void fillReviewParams(Picture picture, User loginUser);
+
+    /**
+     * 批量抓取和创建图片
+     *
+     * @param pictureUploadByBatchRequest
+     * @param loginUser
+     * @return 成功创建的图片数
+     */
+    Integer uploadPictureByBatch(
+            PictureUploadByBatchRequest pictureUploadByBatchRequest,
+            User loginUser
+    );
+
 }
