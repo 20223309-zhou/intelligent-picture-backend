@@ -9,6 +9,7 @@ import com.baomidou.mybatisplus.extension.plugins.pagination.Page;
 import com.baomidou.mybatisplus.extension.service.impl.ServiceImpl;
 import com.picture.backend.exception.BusinessException;
 import com.picture.backend.exception.ErrorCode;
+import com.picture.backend.manager.CosManager;
 import com.picture.backend.manager.upload.FilePictureUpload;
 import com.picture.backend.manager.upload.PictureUploadTemplate;
 import com.picture.backend.manager.upload.UrlPictureUpload;
@@ -25,13 +26,13 @@ import com.picture.backend.model.vo.UserVO;
 import com.picture.backend.service.PictureService;
 import com.picture.backend.mapper.PictureMapper;
 import com.picture.backend.service.UserService;
-import io.swagger.models.auth.In;
 import lombok.extern.slf4j.Slf4j;
 import org.jsoup.Jsoup;
 import org.jsoup.nodes.Document;
 import org.jsoup.nodes.Element;
 import org.jsoup.select.Elements;
 import org.springframework.beans.BeanUtils;
+import org.springframework.scheduling.annotation.Async;
 import org.springframework.stereotype.Service;
 
 import javax.annotation.Resource;
@@ -60,6 +61,9 @@ public class PictureServiceImpl extends ServiceImpl<PictureMapper, Picture> impl
 
     @Resource
     private UserService userService;
+
+    @Resource
+    private CosManager cosManager;
 
     /**
      * 上传或更新图片
@@ -102,7 +106,10 @@ public class PictureServiceImpl extends ServiceImpl<PictureMapper, Picture> impl
         UploadPictureResult uploadPictureResult = pictureUploadTemplate.uploadPicture(inputSource, uploadPathPrefix);
         // 构造要入库的图片信息
         Picture picture = new Picture();
+        // 入库的图片url
+        picture.setOriginUrl(uploadPictureResult.getOriginUrl());
         picture.setUrl(uploadPictureResult.getUrl());
+        picture.setThumbnailUrl(uploadPictureResult.getThumbnailUrl());
         String picName = uploadPictureResult.getPicName();
         if (pictureUploadRequest != null && StrUtil.isNotBlank(pictureUploadRequest.getPicName())) {
             picName = pictureUploadRequest.getPicName();
@@ -335,6 +342,12 @@ public class PictureServiceImpl extends ServiceImpl<PictureMapper, Picture> impl
         }
     }
 
+    /**
+     * 批量抓取和创建图片
+     * @param pictureUploadByBatchRequest
+     * @param loginUser
+     * @return 创建的图片数
+     */
     @Override
     public Integer uploadPictureByBatch(PictureUploadByBatchRequest pictureUploadByBatchRequest, User loginUser) {
         // 获取搜索词
@@ -378,6 +391,7 @@ public class PictureServiceImpl extends ServiceImpl<PictureMapper, Picture> impl
             if (StrUtil.isBlank(namePrefix)) {
                 namePrefix = searchText;
             }
+            // pictureUploadRequest 记录图片分类、标签、名称
             PictureUploadRequest pictureUploadRequest = new PictureUploadRequest();
             pictureUploadRequest.setCategory(pictureUploadByBatchRequest.getCategory());
             pictureUploadRequest.setTags(pictureUploadByBatchRequest.getTags());
@@ -386,6 +400,7 @@ public class PictureServiceImpl extends ServiceImpl<PictureMapper, Picture> impl
                 pictureUploadRequest.setPicName(namePrefix + (uploadCount + 1));
             }
             try {
+                // 上传图片
                 PictureVO pictureVO = this.uploadPicture(fileUrl, pictureUploadRequest, loginUser);
                 log.info("图片上传成功, id = {}", pictureVO.getId());
                 uploadCount++;
@@ -399,6 +414,39 @@ public class PictureServiceImpl extends ServiceImpl<PictureMapper, Picture> impl
         }
         return uploadCount;
     }
+
+    @Async
+    @Override
+    public void clearPictureFile(Picture oldPicture) {
+        // 判断该图片是否被多条记录使用
+        String pictureUrl = oldPicture.getUrl();
+        long count = this.lambdaQuery()
+                .eq(Picture::getUrl, pictureUrl)
+                .count();
+        // 有不止一条记录用到了该图片，不清理
+        if (count > 1) {
+            return;
+        }
+        // 清理图片
+        String url = oldPicture.getUrl();
+        int pathIndex = url.lastIndexOf(".com");
+        String key = url.substring(pathIndex + 4);
+        cosManager.deleteObject(key);
+        // 清理原图
+        String originUrl = oldPicture.getOriginUrl();
+        if (StrUtil.isNotBlank(originUrl)) {
+            String originKey = originUrl.substring(originUrl.lastIndexOf(".com") + 4);
+            cosManager.deleteObject(originKey);
+        }
+        // 清理缩略图
+        String thumbnailUrl = oldPicture.getThumbnailUrl();
+        if (StrUtil.isNotBlank(thumbnailUrl)) {
+            String thumbnailKey = thumbnailUrl.substring(thumbnailUrl.lastIndexOf(".com") + 4);
+            cosManager.deleteObject(thumbnailKey);
+        }
+    }
+
+
 
 
 

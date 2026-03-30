@@ -1,5 +1,7 @@
 package com.picture.backend.controller;
 
+import cn.hutool.core.lang.TypeReference;
+import cn.hutool.crypto.digest.DigestUtil;
 import cn.hutool.json.JSONUtil;
 import com.baomidou.mybatisplus.extension.plugins.pagination.Page;
 import com.picture.backend.annotation.AuthCheck;
@@ -9,6 +11,7 @@ import com.picture.backend.common.ResultUtils;
 import com.picture.backend.constant.UserConstant;
 import com.picture.backend.exception.BusinessException;
 import com.picture.backend.exception.ErrorCode;
+import com.picture.backend.manager.CacheManager;
 import com.picture.backend.model.dto.picture.*;
 import com.picture.backend.model.entity.Picture;
 import com.picture.backend.model.entity.User;
@@ -19,6 +22,7 @@ import com.picture.backend.service.PictureService;
 import com.picture.backend.service.UserService;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.BeanUtils;
+import org.springframework.util.DigestUtils;
 import org.springframework.web.bind.annotation.*;
 import org.springframework.web.multipart.MultipartFile;
 
@@ -34,7 +38,8 @@ import java.util.List;
 public class PictureController {
     @Resource
     private UserService userService;
-
+    @Resource
+    private CacheManager cacheManager;
     @Resource
     private PictureService pictureService;
 
@@ -49,6 +54,7 @@ public class PictureController {
         // 获取登录用户信息
         User loginUser = userService.getLoginUser(request);
         PictureVO pictureVO = pictureService.uploadPicture(multipartFile, pictureUploadRequest, loginUser);
+        cacheManager.batchDeleteCache("picture:listPictureVOByPage");
         return ResultUtils.success(pictureVO);
     }
 
@@ -63,8 +69,10 @@ public class PictureController {
         // 获取登录用户信息
         User loginUser = userService.getLoginUser(request);
         PictureVO pictureVO = pictureService.uploadPicture(pictureUploadRequest.getFileUrl(), pictureUploadRequest, loginUser);
+        cacheManager.batchDeleteCache("picture:listPictureVOByPage:");
         return ResultUtils.success(pictureVO);
     }
+
     /**
      * 删除图片
      */
@@ -89,6 +97,8 @@ public class PictureController {
         if (!result) {
             throw new BusinessException(ErrorCode.OPERATION_ERROR);
         }
+        pictureService.clearPictureFile(oldPicture);
+        cacheManager.batchDeleteCache("picture:listPictureVOByPage");
         return ResultUtils.success(true);
     }
 
@@ -122,6 +132,7 @@ public class PictureController {
         if (!result) {
             throw new BusinessException(ErrorCode.OPERATION_ERROR);
         }
+        cacheManager.batchDeleteCache("picture:listPictureVOByPage:");
         return ResultUtils.success(true);
     }
 
@@ -183,18 +194,36 @@ public class PictureController {
                                                              HttpServletRequest request) {
         long current = pictureQueryRequest.getCurrent();
         long size = pictureQueryRequest.getPageSize();
-        // 限制爬虫
+        // 一页最多展示20条数据，限制爬虫
         if (size > 20) {
-            throw new BusinessException(ErrorCode.PARAMS_ERROR);
+            throw new BusinessException(ErrorCode.PARAMS_ERROR, "1页最多展示20张图片");
+        }
+        // 创建缓存key
+        String jsonStr = JSONUtil.toJsonStr(pictureQueryRequest);
+        String hashKey = DigestUtils.md5DigestAsHex(jsonStr.getBytes());
+        String key = "picture:listPictureVOByPage:" + hashKey;
+        // 查询缓存
+        Page<PictureVO> page = cacheManager.inspectMutiLevelCache(key, new TypeReference<Page<PictureVO>>() {
+        });
+        if (page != null) {
+            return ResultUtils.success(page);
         }
         // 普通用户默认只能查看已过审的数据
         pictureQueryRequest.setReviewStatus(PictureReviewStatusEnum.PASS.getValue());
         // 查询数据库
         Page<Picture> picturePage = pictureService.page(new Page<>(current, size),
                 pictureService.getQueryWrapper(pictureQueryRequest));
-
         // 获取封装类
-        return ResultUtils.success(pictureService.getPictureVOPage(picturePage, request));
+        Page<PictureVO> pictureVOPage = pictureService.getPictureVOPage(picturePage, request);
+        // 创建缓存
+        if (pictureVOPage.getRecords().isEmpty()) {
+            // 空结果缓存时间短一些（20秒）
+            cacheManager.createNullCache(key, pictureVOPage, 20);
+        } else {
+            // 正常数据缓存 6-10 分钟
+            cacheManager.createMultiLevelCache(key, pictureVOPage);
+        }
+        return ResultUtils.success(pictureVOPage);
     }
 
     /**
@@ -232,6 +261,7 @@ public class PictureController {
         if (!result) {
             throw new BusinessException(ErrorCode.OPERATION_ERROR);
         }
+        cacheManager.batchDeleteCache("picture:listPictureVOByPage:");
         return ResultUtils.success(true);
 
     }
@@ -242,7 +272,7 @@ public class PictureController {
     @GetMapping("/tag_category")
     public BaseResponse<PictureTagCategory> listPictureTagCategory() {
         PictureTagCategory pictureTagCategory = new PictureTagCategory();
-        List<String> tagList = Arrays.asList("热门", "搞笑", "生活", "高清", "艺术", "校园", "背景", "简历", "创意");
+        List<String> tagList = Arrays.asList("热门", "搞笑", "生活", "高清", "艺术", "校园", "背景", "简历", "创意", "游戏", "动漫");
         List<String> categoryList = Arrays.asList("模板", "电商", "表情包", "素材", "海报");
         pictureTagCategory.setTagList(tagList);
         pictureTagCategory.setCategoryList(categoryList);
@@ -261,6 +291,7 @@ public class PictureController {
         }
         User loginUser = userService.getLoginUser(request);
         pictureService.doPictureReview(pictureReviewRequest, loginUser);
+        cacheManager.batchDeleteCache("picture:listPictureVOByPage:");
         return ResultUtils.success(true);
     }
 
@@ -272,14 +303,24 @@ public class PictureController {
     public BaseResponse<Integer> uploadPictureByBatch(
             @RequestBody PictureUploadByBatchRequest pictureUploadByBatchRequest,
             HttpServletRequest request) {
-        if(pictureUploadByBatchRequest == null){
+        if (pictureUploadByBatchRequest == null) {
             throw new BusinessException(ErrorCode.PARAMS_ERROR);
         }
         User loginUser = userService.getLoginUser(request);
         int uploadCount = pictureService.uploadPictureByBatch(pictureUploadByBatchRequest, loginUser);
+        cacheManager.batchDeleteCache("picture:listPictureVOByPage:");
         return ResultUtils.success(uploadCount);
     }
 
+    /**
+     * 删除所有缓存
+     */
+    @PostMapping("/cache/delete/all")
+    @AuthCheck(mustRole = UserConstant.ADMIN_ROLE)
+    public BaseResponse<String> deleteAllCache() {
+        String success = cacheManager.deleteAllCache();
+        return ResultUtils.success(success);
+    }
 
 
 }

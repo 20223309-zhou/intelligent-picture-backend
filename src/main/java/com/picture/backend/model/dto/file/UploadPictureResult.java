@@ -33,8 +33,18 @@ public class UploadPictureResult {
     /**  
      * 图片宽高比  
      */  
-    private Double picScale;  
-  
+    private Double picScale;
+
+    /**
+     * 缩略图 url
+     */
+    private String thumbnailUrl;
+
+    /**
+     * 原图 url
+     */
+    private String originUrl;
+
     /**  
      * 图片格式  
      */  

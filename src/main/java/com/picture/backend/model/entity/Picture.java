@@ -20,6 +20,14 @@ public class Picture {
     private Long id;
 
     /**
+     * 缩略图 url
+     */
+    private String thumbnailUrl;
+    /**
+     * 原图 url
+     */
+    private String originUrl;
+    /**
      * 图片 url
      */
     private String url;
