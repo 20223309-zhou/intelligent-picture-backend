@@ -14,11 +14,13 @@ import com.picture.backend.exception.ErrorCode;
 import com.picture.backend.manager.CacheManager;
 import com.picture.backend.model.dto.picture.*;
 import com.picture.backend.model.entity.Picture;
+import com.picture.backend.model.entity.Space;
 import com.picture.backend.model.entity.User;
 import com.picture.backend.model.enums.PictureReviewStatusEnum;
 import com.picture.backend.model.vo.PictureTagCategory;
 import com.picture.backend.model.vo.PictureVO;
 import com.picture.backend.service.PictureService;
+import com.picture.backend.service.SpaceService;
 import com.picture.backend.service.UserService;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.BeanUtils;
@@ -42,7 +44,8 @@ public class PictureController {
     private CacheManager cacheManager;
     @Resource
     private PictureService pictureService;
-
+    @Resource
+    private SpaceService spaceService;
     /**
      * 上传图片（可重新上传）
      */
@@ -81,26 +84,12 @@ public class PictureController {
         if (deleteRequest == null || deleteRequest.getId() <= 0) {
             throw new BusinessException(ErrorCode.PARAMS_ERROR);
         }
-        User loginUser = userService.getLoginUser(request);
-        long id = deleteRequest.getId();
-        // 判断是否存在
-        Picture oldPicture = pictureService.getById(id);
-        if (oldPicture == null) {
-            throw new BusinessException(ErrorCode.NOT_FOUND_ERROR);
-        }
-        // 仅本人或管理员可删除
-        if (!oldPicture.getUserId().equals(loginUser.getId()) && !userService.isAdmin(loginUser)) {
-            throw new BusinessException(ErrorCode.NO_AUTH_ERROR);
-        }
-        // 操作数据库
-        boolean result = pictureService.removeById(id);
-        if (!result) {
-            throw new BusinessException(ErrorCode.OPERATION_ERROR);
-        }
-        pictureService.clearPictureFile(oldPicture);
+        pictureService.deletePicture(deleteRequest, request);
+        // 删除图片缓存，刷新缓存
         cacheManager.batchDeleteCache("picture:listPictureVOByPage");
         return ResultUtils.success(true);
     }
+
 
     /**
      * 更新图片（仅管理员可用）
@@ -168,6 +157,12 @@ public class PictureController {
         if (picture == null) {
             throw new BusinessException(ErrorCode.NOT_FOUND_ERROR);
         }
+        // 空间权限校验
+        Long spaceId = picture.getSpaceId();
+        if (spaceId != null) {
+            User loginUser = userService.getLoginUser(request);
+            pictureService.checkPictureAuth(loginUser, picture);
+        }
         // 获取封装类
         return ResultUtils.success(pictureService.getPictureVO(picture, request));
     }
@@ -198,30 +193,53 @@ public class PictureController {
         if (size > 20) {
             throw new BusinessException(ErrorCode.PARAMS_ERROR, "1页最多展示20张图片");
         }
-        // 创建缓存key
-        String jsonStr = JSONUtil.toJsonStr(pictureQueryRequest);
-        String hashKey = DigestUtils.md5DigestAsHex(jsonStr.getBytes());
-        String key = "picture:listPictureVOByPage:" + hashKey;
-        // 查询缓存
-        Page<PictureVO> page = cacheManager.inspectMutiLevelCache(key, new TypeReference<Page<PictureVO>>() {
-        });
-        if (page != null) {
-            return ResultUtils.success(page);
+        // 空间权限校验
+        Long spaceId = pictureQueryRequest.getSpaceId();
+        // 公开图库
+        if (spaceId == null) {
+            // 普通用户默认只能查看已过审的公开数据
+            pictureQueryRequest.setReviewStatus(PictureReviewStatusEnum.PASS.getValue());
+            pictureQueryRequest.setNullSpaceId(true);
+        } else {
+            // 私有空间
+            User loginUser = userService.getLoginUser(request);
+            Space space = spaceService.getById(spaceId);
+            if (space == null){
+                throw new BusinessException(ErrorCode.NOT_FOUND_ERROR, "空间不存在");
+            }
+            if (!loginUser.getId().equals(space.getUserId())) {
+                throw new BusinessException(ErrorCode.NO_AUTH_ERROR, "没有空间权限");
+            }
         }
-        // 普通用户默认只能查看已过审的数据
-        pictureQueryRequest.setReviewStatus(PictureReviewStatusEnum.PASS.getValue());
+        String key = null;
+
+        if (spaceId == null) {
+            // 创建缓存key
+            String jsonStr = JSONUtil.toJsonStr(pictureQueryRequest);
+            String hashKey = DigestUtils.md5DigestAsHex(jsonStr.getBytes());
+            key = "picture:listPictureVOByPage:" + hashKey;
+            // 查询缓存
+            Page<PictureVO> page = cacheManager.inspectMutiLevelCache(key, new TypeReference<Page<PictureVO>>() {
+            });
+            if (page != null) {
+                return ResultUtils.success(page);
+            }
+        }
         // 查询数据库
         Page<Picture> picturePage = pictureService.page(new Page<>(current, size),
                 pictureService.getQueryWrapper(pictureQueryRequest));
         // 获取封装类
         Page<PictureVO> pictureVOPage = pictureService.getPictureVOPage(picturePage, request);
-        // 创建缓存
-        if (pictureVOPage.getRecords().isEmpty()) {
-            // 空结果缓存时间短一些（20秒）
-            cacheManager.createNullCache(key, pictureVOPage, 20);
-        } else {
-            // 正常数据缓存 6-10 分钟
-            cacheManager.createMultiLevelCache(key, pictureVOPage);
+        // 私人空间图片不需要缓存
+        if (spaceId == null) {
+            // 创建缓存
+            if (pictureVOPage.getRecords().isEmpty()) {
+                // 空结果缓存时间短一些（10秒）
+                cacheManager.createNullCache(key, pictureVOPage, 10);
+            } else {
+                // 正常数据缓存 6-10 分钟
+                cacheManager.createMultiLevelCache(key, pictureVOPage);
+            }
         }
         return ResultUtils.success(pictureVOPage);
     }
@@ -234,37 +252,11 @@ public class PictureController {
         if (pictureEditRequest == null || pictureEditRequest.getId() <= 0) {
             throw new BusinessException(ErrorCode.PARAMS_ERROR);
         }
-        // 在此处将实体类和 DTO 进行转换
-        Picture picture = new Picture();
-        BeanUtils.copyProperties(pictureEditRequest, picture);
-        // 注意将 list 转为 string
-        picture.setTags(JSONUtil.toJsonStr(pictureEditRequest.getTags()));
-        // 设置编辑时间
-        picture.setEditTime(new Date());
-        // 数据校验
-        pictureService.validPicture(picture);
-        User loginUser = userService.getLoginUser(request);
-        // 判断是否存在
-        long id = pictureEditRequest.getId();
-        Picture oldPicture = pictureService.getById(id);
-        if (oldPicture == null) {
-            throw new BusinessException(ErrorCode.PARAMS_ERROR);
-        }
-        // 仅本人或管理员可编辑
-        if (!oldPicture.getUserId().equals(loginUser.getId()) && !userService.isAdmin(loginUser)) {
-            throw new BusinessException(ErrorCode.NO_AUTH_ERROR);
-        }
-        // 补充审核参数
-        pictureService.fillReviewParams(picture, loginUser);
-        // 操作数据库
-        boolean result = pictureService.updateById(picture);
-        if (!result) {
-            throw new BusinessException(ErrorCode.OPERATION_ERROR);
-        }
+        pictureService.editPicture(pictureEditRequest, request);
         cacheManager.batchDeleteCache("picture:listPictureVOByPage:");
         return ResultUtils.success(true);
-
     }
+
 
     /**
      * 获取标签和分类

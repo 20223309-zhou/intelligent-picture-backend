@@ -122,4 +122,10 @@ public class Picture {
      */
     private Date reviewTime;
 
+    /**
+     * 空间 id
+     */
+    private Long spaceId;
+
+
 }

@@ -2,10 +2,18 @@ server:
   port: 8080
   servlet:
     context-path: /api
+    session:
+      cookie:
+        # cookie30天过期，单位秒
+        max-age: 2592000
 
 spring:
   application:
     name: intelligent-picture-service
+  session:
+    store-type: redis
+    # 会话30天过期，单位秒
+    timeout: 2592000
   # 文件上传配置
   servlet:
     multipart:

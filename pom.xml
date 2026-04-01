@@ -91,16 +91,18 @@
             <artifactId>caffeine</artifactId>
             <version>3.1.8</version>
         </dependency>
-        <!-- redis依赖-->
+        <!-- Spring Session + Redis -->
         <dependency>
-            <groupId>org.springframework.boot</groupId>
-            <artifactId>spring-boot-starter-data-redis</artifactId>
+            <groupId>org.springframework.session</groupId>
+            <artifactId>spring-session-data-redis</artifactId>
         </dependency>
-        <!--连接池依赖-->
+        <!-- Redisson -->
         <dependency>
-            <groupId>org.apache.commons</groupId>
-            <artifactId>commons-pool2</artifactId>
+            <groupId>org.redisson</groupId>
+            <artifactId>redisson</artifactId>
+            <version>3.13.6</version>
         </dependency>
+
     </dependencies>
     <dependencyManagement>
         <dependencies>

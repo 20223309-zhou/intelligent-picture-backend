@@ -76,7 +76,6 @@ public class CacheManager {
     // 创建带过期时间的缓存（用于空结果）
     public void createNullCache(String key,Object object ,int expireMinutes) {
         String cacheValue = JSONUtil.toJsonStr(object);
-        LOCAL_CACHE.put(key, cacheValue);
         redisTemplate.opsForValue().set(key, cacheValue, expireMinutes, TimeUnit.SECONDS);
     }
 
