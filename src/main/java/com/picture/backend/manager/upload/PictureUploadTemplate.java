@@ -118,7 +118,9 @@ public abstract class PictureUploadTemplate {
         uploadPictureResult.setPicWidth(picWidth);  
         uploadPictureResult.setPicHeight(picHeight);  
         uploadPictureResult.setPicScale(picScale);  
-        uploadPictureResult.setPicFormat(imageInfo.getFormat());  
+        uploadPictureResult.setPicFormat(imageInfo.getFormat());
+        // 设置图片主色调
+        uploadPictureResult.setPicColor(imageInfo.getAve());
         uploadPictureResult.setPicSize(FileUtil.size(file));  
         uploadPictureResult.setUrl(cosClientConfig.getHost() + uploadPath);
         return uploadPictureResult;  
@@ -144,6 +146,8 @@ public abstract class PictureUploadTemplate {
         uploadPictureResult.setThumbnailUrl(cosClientConfig.getHost() + "/" + thumbnailCiObject.getKey());
         // 设置原图的地址
         uploadPictureResult.setOriginUrl(cosClientConfig.getHost() + uploadPath);
+        // 设置图片主色调
+        uploadPictureResult.setPicColor(imageInfo.getAve());
         return uploadPictureResult;
     }
 
