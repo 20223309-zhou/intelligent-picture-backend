@@ -5,6 +5,7 @@ import com.baomidou.mybatisplus.extension.plugins.pagination.Page;
 import com.baomidou.mybatisplus.extension.service.IService;
 import com.picture.backend.model.dto.space.SpaceAddRequest;
 import com.picture.backend.model.dto.space.SpaceQueryRequest;
+import com.picture.backend.model.dto.user.UserQueryRequest;
 import com.picture.backend.model.entity.Space;
 import com.picture.backend.model.entity.User;
 import com.picture.backend.model.vo.SpaceVO;
@@ -17,7 +18,12 @@ import javax.servlet.http.HttpServletRequest;
 * @createDate 2026-03-31 16:47:58
 */
 public interface SpaceService extends IService<Space> {
-
+    /**
+     * 添加空间
+     * @param spaceAddRequest
+     * @param loginUser
+     * @return
+     */
     long addSpace(SpaceAddRequest spaceAddRequest, User loginUser) throws InterruptedException;
 
     /**
@@ -55,4 +61,11 @@ public interface SpaceService extends IService<Space> {
      * @param space
      */
     void fillSpaceBySpaceLevel(Space space);
+
+    /**
+     * 权限校验
+     * @param loginUser
+     * @param space
+     */
+    void checkSpaceAuth(User loginUser, Space space);
 }

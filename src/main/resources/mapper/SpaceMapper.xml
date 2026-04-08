@@ -16,12 +16,13 @@
             <result property="createTime" column="createTime" />
             <result property="editTime" column="editTime" />
             <result property="updateTime" column="updateTime" />
+            <result property="spaceType" column="spaceType" />
             <result property="isDelete" column="isDelete" />
     </resultMap>
 
     <sql id="Base_Column_List">
         id,spaceName,spaceLevel,maxSize,maxCount,totalSize,
-        totalCount,userId,createTime,editTime,updateTime,
+        totalCount,userId,createTime,editTime,updateTime,spaceType,
         isDelete
     </sql>
 </mapper>

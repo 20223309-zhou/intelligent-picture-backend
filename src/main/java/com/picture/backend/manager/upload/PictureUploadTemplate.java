@@ -42,11 +42,18 @@ public abstract class PictureUploadTemplate {
         String uuid = RandomUtil.randomString(16);
         String originFilename = getOriginFilename(inputSource);
         String suffix;
-        if (!originFilename.contains("jpg") && !originFilename.contains("png")
-                && !originFilename.contains("jpeg") && !originFilename.contains("webp")){
+        if (!originFilename.contains(".jpg") && !originFilename.contains(".png")
+                && !originFilename.contains(".jpeg") && !originFilename.contains(".webp")){
             suffix = "png";
         } else {
             suffix = FileUtil.getSuffix(originFilename);
+            if (suffix.contains("jpeg") || suffix.contains("webp")) {
+                suffix = suffix.substring(0,4);
+            }
+            else if (suffix.contains("jpg") || suffix.contains("png")) {
+                suffix = suffix.substring(0,3);
+            }
+
         }
         String uploadFilename = String.format("%s_%s.%s", DateUtil.formatDate(new Date()), uuid,
                 suffix);
@@ -55,8 +62,9 @@ public abstract class PictureUploadTemplate {
         File file = null;  
         try {  
             // 3. 创建临时文件  
-            file = File.createTempFile(uploadPath, null);
-            // 处理文件来源（本地或 URL）  
+            //file = File.createTempFile(uploadPath, null);
+            file = File.createTempFile(uploadFilename, null);
+            // 处理文件来源（本地或 URL）
             processFile(inputSource, file);  
   
             // 4. 上传图片到对象存储
@@ -64,7 +72,6 @@ public abstract class PictureUploadTemplate {
             PutObjectResult putObjectResult = cosManager.putPictureObject(uploadPath, file);
             // 获得原图的信息
             ImageInfo imageInfo = putObjectResult.getCiUploadResult().getOriginalInfo().getImageInfo();
-
             ProcessResults processResults = putObjectResult.getCiUploadResult().getProcessResults();
             // 获得处理结果后的对象列表
             List<CIObject> objectList = processResults.getObjectList();

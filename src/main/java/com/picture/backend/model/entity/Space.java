@@ -66,6 +66,11 @@ public class Space implements Serializable {
     private Date updateTime;
 
     /**
+     * 空间类型：0-私人空间 1-团队空间
+     */
+    private Integer spaceType;
+
+    /**
      * 是否删除
      */
     @TableLogic

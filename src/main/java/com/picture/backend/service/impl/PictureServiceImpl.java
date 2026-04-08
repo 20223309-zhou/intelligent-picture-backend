@@ -1,5 +1,6 @@
 package com.picture.backend.service.impl;
 
+import cn.hutool.core.bean.BeanUtil;
 import cn.hutool.core.collection.CollUtil;
 import cn.hutool.core.util.ObjUtil;
 import cn.hutool.core.util.StrUtil;
@@ -7,6 +8,9 @@ import cn.hutool.json.JSONUtil;
 import com.baomidou.mybatisplus.core.conditions.query.QueryWrapper;
 import com.baomidou.mybatisplus.extension.plugins.pagination.Page;
 import com.baomidou.mybatisplus.extension.service.impl.ServiceImpl;
+import com.picture.backend.api.aliyunai.AliYunAiApi;
+import com.picture.backend.api.aliyunai.model.CreateOutPaintingTaskRequest;
+import com.picture.backend.api.aliyunai.model.CreateOutPaintingTaskResponse;
 import com.picture.backend.common.DeleteRequest;
 import com.picture.backend.exception.BusinessException;
 import com.picture.backend.exception.ErrorCode;
@@ -73,6 +77,9 @@ public class PictureServiceImpl extends ServiceImpl<PictureMapper, Picture> impl
     @Resource
     private TransactionTemplate transactionTemplate;
 
+    @Resource
+    private AliYunAiApi aliYunAiApi;
+
     /**
      * 上传或更新图片
      *
@@ -94,9 +101,9 @@ public class PictureServiceImpl extends ServiceImpl<PictureMapper, Picture> impl
                 throw new BusinessException(ErrorCode.NOT_FOUND_ERROR, "空间不存在");
             }
             // 必须空间创建人（管理员）才能上传
-            if (!loginUser.getId().equals(space.getUserId())) {
-                throw new BusinessException(ErrorCode.NO_AUTH_ERROR, "没有空间权限");
-            }
+//            if (!loginUser.getId().equals(space.getUserId())) {
+//                throw new BusinessException(ErrorCode.NO_AUTH_ERROR, "没有空间权限");
+//            }
             // 校验额度
             if (space.getTotalCount() >= space.getMaxCount()) {
                 throw new BusinessException(ErrorCode.OPERATION_ERROR, "空间条数不足");
@@ -117,10 +124,10 @@ public class PictureServiceImpl extends ServiceImpl<PictureMapper, Picture> impl
             if (oldPicture == null) {
                 throw new BusinessException(ErrorCode.NOT_FOUND_ERROR, "图片不存在");
             }
-            // 仅本人或管理员可编辑
-            if (!oldPicture.getUserId().equals(loginUser.getId()) && !userService.isAdmin(loginUser)) {
-                throw new BusinessException(ErrorCode.NO_AUTH_ERROR);
-            }
+              // 仅本人或管理员可编辑
+//            if (!oldPicture.getUserId().equals(loginUser.getId()) && !userService.isAdmin(loginUser)) {
+//                throw new BusinessException(ErrorCode.NO_AUTH_ERROR);
+//            }
             // 校验空间是否一致
             // 没传 spaceId，则复用原有图片的 spaceId
             if (spaceId == null) {
@@ -240,7 +247,7 @@ public class PictureServiceImpl extends ServiceImpl<PictureMapper, Picture> impl
             throw new BusinessException(ErrorCode.NOT_FOUND_ERROR);
         }
         // 校验权限
-        checkPictureAuth(loginUser, oldPicture);
+//        checkPictureAuth(loginUser, oldPicture);
         // 开启事务
         transactionTemplate.execute(status -> {
             // 操作数据库
@@ -292,7 +299,7 @@ public class PictureServiceImpl extends ServiceImpl<PictureMapper, Picture> impl
             throw new BusinessException(ErrorCode.PARAMS_ERROR);
         }
         // 校验权限
-        this.checkPictureAuth(loginUser, oldPicture);
+//        this.checkPictureAuth(loginUser, oldPicture);
         // 补充审核参数
         this.fillReviewParams(picture, loginUser);
         // 操作数据库
@@ -772,6 +779,54 @@ public class PictureServiceImpl extends ServiceImpl<PictureMapper, Picture> impl
             throw new BusinessException(ErrorCode.OPERATION_ERROR, "名称解析错误");
         }
     }
+
+
+    /**
+     * 创建图片扩容任务
+     *
+     * @param createPictureOutPaintingTaskRequest
+     * @param loginUser
+     * @return
+     */
+    @Override
+    public CreateOutPaintingTaskResponse createPictureOutPaintingTask(CreatePictureOutPaintingTaskRequest createPictureOutPaintingTaskRequest, User loginUser) {
+        // 获取图片信息
+        Long pictureId = createPictureOutPaintingTaskRequest.getPictureId();
+        Picture picture = Optional.ofNullable(this.getById(pictureId))
+                .orElseThrow(() -> new BusinessException(ErrorCode.NOT_FOUND_ERROR));
+        // 权限校验
+//        checkPictureAuth(loginUser, picture);
+
+        // 校验图片尺寸是否符合阿里云 AI 要求
+        Integer picWidth = picture.getPicWidth();
+        Integer picHeight = picture.getPicHeight();
+        if (picWidth == null || picHeight == null) {
+            throw new BusinessException(ErrorCode.PARAMS_ERROR, "图片尺寸信息缺失");
+        }
+
+        // 阿里云扩图要求：最小 512x512，最大 4096x4096
+        int minSize = 512;
+        int maxSize = 4096;
+
+        if (picWidth < minSize || picHeight < minSize) {
+            throw new BusinessException(ErrorCode.PARAMS_ERROR,
+                    String.format("图片尺寸过小（%dx%d），最小要求 %dx%d", picWidth, picHeight, minSize, minSize));
+        }
+
+        if (picWidth > maxSize || picHeight > maxSize) {
+            throw new BusinessException(ErrorCode.PARAMS_ERROR,
+                    String.format("图片尺寸过大（%dx%d），最大要求 %dx%d", picWidth, picHeight, maxSize, maxSize));
+        }
+        // 构造请求参数
+        CreateOutPaintingTaskRequest taskRequest = new CreateOutPaintingTaskRequest();
+        CreateOutPaintingTaskRequest.Input input = new CreateOutPaintingTaskRequest.Input();
+        input.setImageUrl(picture.getUrl());
+        taskRequest.setInput(input);
+        BeanUtil.copyProperties(createPictureOutPaintingTaskRequest, taskRequest);
+        // 创建任务
+        return aliYunAiApi.createOutPaintingTask(taskRequest);
+    }
+
 
 
 

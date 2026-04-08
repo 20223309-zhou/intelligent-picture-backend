@@ -2,6 +2,7 @@ package com.picture.backend.service;
 
 import com.baomidou.mybatisplus.core.conditions.query.QueryWrapper;
 import com.baomidou.mybatisplus.extension.plugins.pagination.Page;
+import com.picture.backend.api.aliyunai.model.CreateOutPaintingTaskResponse;
 import com.picture.backend.common.DeleteRequest;
 import com.picture.backend.exception.BusinessException;
 import com.picture.backend.exception.ErrorCode;
@@ -139,4 +140,13 @@ public interface PictureService extends IService<Picture> {
      * @param loginUser
      */
     void editPictureByBatch(PictureEditByBatchRequest pictureEditByBatchRequest, User loginUser);
+
+    /**
+     * 创建图片增画任务
+     *
+     * @param createPictureOutPaintingTaskRequest
+     * @param loginUser
+     * @return
+     */
+    CreateOutPaintingTaskResponse createPictureOutPaintingTask(CreatePictureOutPaintingTaskRequest createPictureOutPaintingTaskRequest, User loginUser);
 }

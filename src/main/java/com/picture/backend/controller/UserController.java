@@ -8,6 +8,7 @@ import com.picture.backend.common.ResultUtils;
 import com.picture.backend.constant.UserConstant;
 import com.picture.backend.exception.BusinessException;
 import com.picture.backend.exception.ErrorCode;
+import com.picture.backend.manager.CosManager;
 import com.picture.backend.model.dto.user.*;
 import com.picture.backend.model.entity.User;
 import com.picture.backend.model.vo.LoginUserVO;
@@ -15,10 +16,13 @@ import com.picture.backend.model.vo.UserVO;
 import com.picture.backend.service.UserService;
 import org.springframework.beans.BeanUtils;
 import org.springframework.web.bind.annotation.*;
+import org.springframework.web.multipart.MultipartFile;
 
 import javax.annotation.Resource;
 import javax.servlet.http.HttpServletRequest;
 import java.util.List;
+
+import static com.picture.backend.constant.UserConstant.USER_LOGIN_STATE;
 
 @RestController
 @RequestMapping("/user")
@@ -26,6 +30,8 @@ public class UserController {
 
     @Resource
     private UserService userService;
+    @Resource
+    private CosManager cosManager;
 
     /**
      * 用户注册
@@ -136,7 +142,7 @@ public class UserController {
     }
 
     /**
-     * 更新用户
+     * 更新用户信息(管理员)
      */
     @PostMapping("/update")
     @AuthCheck(mustRole = UserConstant.ADMIN_ROLE)
@@ -146,6 +152,34 @@ public class UserController {
         }
         User user = new User();
         BeanUtils.copyProperties(userUpdateRequest, user);
+        boolean result = userService.updateById(user);
+        if(!result){
+            throw new BusinessException(ErrorCode.OPERATION_ERROR);
+        }
+        return ResultUtils.success(true);
+    }
+
+    /**
+     * 更新用户信息(用户)
+     */
+    @PostMapping("/update/my")
+    @AuthCheck(mustRole = UserConstant.DEFAULT_ROLE)
+    public BaseResponse<Boolean> updateUserBySelf(UserUpdateRequest userUpdateRequest
+    , HttpServletRequest request,@RequestPart(value = "file", required = false) MultipartFile file) {
+        if (userUpdateRequest == null || userUpdateRequest.getId() == null) {
+            throw new BusinessException(ErrorCode.PARAMS_ERROR);
+        }
+        // 判断修改用户信息的是否是自己本身
+        if (!userUpdateRequest.getId().equals(userService.getLoginUser(request).getId())){
+            throw new BusinessException(ErrorCode.NO_AUTH_ERROR);
+        }
+        User user = new User();
+        BeanUtils.copyProperties(userUpdateRequest, user);
+        // 上传头像
+        String userAvatar = cosManager.putUserAvatar(user.getId(), file);
+        if(userAvatar != null){
+            user.setUserAvatar(userAvatar);
+        }
         boolean result = userService.updateById(user);
         if(!result){
             throw new BusinessException(ErrorCode.OPERATION_ERROR);
@@ -172,7 +206,5 @@ public class UserController {
         userVOPage.setRecords(userVOList);
         return ResultUtils.success(userVOPage);
     }
-
-
 
 }
