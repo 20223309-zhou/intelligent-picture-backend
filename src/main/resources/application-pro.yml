@@ -12,3 +12,14 @@ spring:
     port: 6379
     password: 123456
     timeout: 5000
+
+cos:
+  client:
+    host: ${COS_HOST}
+    secretId: ${COS_SECRET_ID}
+    secretKey: ${COS_SECRET_KEY}
+    region: ${COS_REGION}
+    bucket: ${COS_BUCKET}
+
+aliYunAi:
+  apiKey: ${ALIYUN_AI_API_KEY}
