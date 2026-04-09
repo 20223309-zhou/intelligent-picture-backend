@@ -167,7 +167,7 @@
                 <version>${spring-boot.version}</version>
                 <configuration>
                     <mainClass>com.picture.backend.IntelligentPictureBackendApplication</mainClass>
-                    <skip>true</skip>
+                    <skip>false</skip>
                 </configuration>
                 <executions>
                     <execution>

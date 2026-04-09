@@ -34,6 +34,7 @@ import com.picture.backend.service.SpaceService;
 import com.picture.backend.service.UserService;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.BeanUtils;
+import org.springframework.beans.propertyeditors.CurrencyEditor;
 import org.springframework.util.DigestUtils;
 import org.springframework.web.bind.annotation.*;
 import org.springframework.web.multipart.MultipartFile;
@@ -43,6 +44,8 @@ import javax.servlet.http.HttpServletRequest;
 import java.util.Arrays;
 import java.util.Date;
 import java.util.List;
+
+import static com.picture.backend.constant.UserConstant.USER_LOGIN_STATE;
 
 @RestController
 @RequestMapping("/picture")
@@ -187,8 +190,16 @@ public class PictureController {
                 throw new BusinessException(ErrorCode.NOT_FOUND_ERROR, "空间不存在");
             }
         }
+        // 获取当前登录用户
+        User loginUser;
+        Object userObject = request.getSession().getAttribute(USER_LOGIN_STATE);
+        User currentUser = (User) userObject;
+        if (currentUser == null || currentUser.getId() == null) {
+            loginUser = null;
+        }else{
+            loginUser = currentUser;
+        }
         // 获取权限列表
-        User loginUser = userService.getLoginUser(request);
         List<String> permissionList = spaceUserAuthManager.getPermissionList(space, loginUser);
         PictureVO pictureVO = pictureService.getPictureVO(picture, request);
         pictureVO.setPermissionList(permissionList);
