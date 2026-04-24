@@ -18,7 +18,7 @@ public class ImageSearchApiFacade {
      * @return
      */
     public static List<ImageSearchResult> searchImage(String imageUrl) {
-        String imagePageUrl = GetImagePageUrlApi.getImagePageUrl(imageUrl);
+        String imagePageUrl = GetImagePageUrlApi.uploadImageByUrl(imageUrl);
         String imageFirstUrl = GetImageFirstUrlApi.getImageFirstUrl(imagePageUrl);
         List<ImageSearchResult> imageList = GetImageListApi.getImageList(imageFirstUrl);
         return imageList;

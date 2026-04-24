@@ -24,6 +24,6 @@ public class WebSocketConfig implements WebSocketConfigurer {
         // websocket
         registry.addHandler(pictureEditHandler, "/ws/picture/edit")
                 .addInterceptors(wsHandshakeInterceptor)
-                .setAllowedOrigins("*");
+                .setAllowedOriginPatterns("*");
     }
 }

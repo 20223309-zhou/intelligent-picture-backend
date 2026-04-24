@@ -1,5 +1,5 @@
 server:
-  port: 8080
+  port: 8088
   servlet:
     context-path: /api
     session:
@@ -20,7 +20,7 @@ spring:
       max-file-size: 10MB
   #指定运行环境
   profiles:
-    active: pro
+    active: dev
 # knife4j接口文档配置
 knife4j:
   enable: true

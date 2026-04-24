@@ -200,6 +200,7 @@ public class UserServiceImpl extends ServiceImpl<UserMapper, User> implements Us
         }
         // 移除登录态
         request.getSession().invalidate();  // 使整个 Session 失效（包括删除 Redis 中的数据和 Cookie）
+        StpKit.SPACE.logout();
         return true;
     }
 

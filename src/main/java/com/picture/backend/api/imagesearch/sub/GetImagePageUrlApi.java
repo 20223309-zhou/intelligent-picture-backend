@@ -5,6 +5,8 @@ import cn.hutool.core.util.URLUtil;
 import cn.hutool.http.HttpRequest;
 import cn.hutool.http.HttpResponse;
 import cn.hutool.http.HttpStatus;
+import cn.hutool.http.HttpUtil;
+import cn.hutool.json.JSONObject;
 import cn.hutool.json.JSONUtil;
 import com.picture.backend.exception.BusinessException;
 import com.picture.backend.exception.ErrorCode;
@@ -14,59 +16,54 @@ import java.nio.charset.StandardCharsets;
 import java.util.HashMap;
 import java.util.Map;
 
+import static com.picture.backend.api.imagesearch.sub.GetImageFirstUrlApi.getImageFirstUrl;
+
 @Slf4j
 public class GetImagePageUrlApi {
 
     /**
-     * 获取图片页面地址
-     *
-     * @param imageUrl
-     * @return
+     * 通过图片 URL 上传到百度图片搜索
+     * @param imageUrl 图片的 URL 地址
+     * @return 百度返回的 JSON 结果
      */
-    public static String getImagePageUrl(String imageUrl) {
-        // 1. 准备请求参数
-        Map<String, Object> formData = new HashMap<>();
-        formData.put("image", imageUrl);
-        formData.put("tn", "pc");
-        formData.put("from", "pc");
-        formData.put("image_source", "PC_UPLOAD_URL");
-        // 获取当前时间戳
-        long uptime = System.currentTimeMillis();
-        // 请求地址
-        String url = "https://graph.baidu.com/upload?uptime=" + uptime;
-
+    public static String uploadImageByUrl(String imageUrl) {
+        // 下载图片
+        byte[] imageBytes = null;
         try {
-            // 2. 发送 POST 请求到百度接口
-            HttpResponse response = HttpRequest.post(url)
-                    .header("acs-token", RandomUtil.randomString(1))
-                    .form(formData)
-                    .timeout(5000)
-                    .execute();
-            // 判断响应状态
-            if (HttpStatus.HTTP_OK != response.getStatus()) {
-                throw new BusinessException(ErrorCode.OPERATION_ERROR, "接口调用失败");
-            }
-            // 解析响应
-            String responseBody = response.body();
-            Map<String, Object> result = JSONUtil.toBean(responseBody, Map.class);
-
-            // 3. 处理响应结果
-            if (result == null || !Integer.valueOf(0).equals(result.get("status"))) {
-                throw new BusinessException(ErrorCode.OPERATION_ERROR, "接口调用失败");
-            }
-            Map<String, Object> data = (Map<String, Object>) result.get("data");
-            String rawUrl = (String) data.get("url");
-            // 对 URL 进行解码
-            String searchResultUrl = URLUtil.decode(rawUrl, StandardCharsets.UTF_8);
-            // 如果 URL 为空
-            if (searchResultUrl == null) {
-                throw new BusinessException(ErrorCode.OPERATION_ERROR, "未返回有效结果");
-            }
-            return searchResultUrl;
+            imageBytes = HttpUtil.downloadBytes(imageUrl);
         } catch (Exception e) {
-            log.error("搜索失败", e);
-            throw new BusinessException(ErrorCode.OPERATION_ERROR, "搜索失败");
+            throw new BusinessException(ErrorCode.SYSTEM_ERROR, "图片下载失败");
         }
+
+        // 上传到百度
+        long uptime = System.currentTimeMillis();
+        String uploadUrl = "https://graph.baidu.com/upload?uptime=" + uptime;
+
+        HttpResponse response = HttpRequest.post(uploadUrl)
+                .header("User-Agent", "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36")
+                .header("Accept", "*/*")
+                .header("Accept-Language", "zh-CN,zh;q=0.9,en;q=0.8")
+                .header("Origin", "https://graph.baidu.com")
+                .header("Referer", "https://graph.baidu.com/")
+                .header("Sec-Fetch-Dest", "empty")
+                .header("Sec-Fetch-Mode", "cors")
+                .header("Sec-Fetch-Site", "same-origin")
+                .header("Acs-Token", "")
+                .form("image", imageBytes, "image.jpg")
+                .form("tn", "pc")
+                .form("from", "pc")
+                .form("image_source", "PC_UPLOAD_URL")
+                .timeout(30000)
+                .execute();
+        JSONObject jsonObject = JSONUtil.parseObj(response.body());
+        String url = (String) jsonObject.get("data", JSONObject.class).get("url");
+        return url;
     }
 
+    public static void main(String[] args) {
+        String imageUrl = "https://cn.bing.com/th/id/OIP-C.IJZgTNx1vp9EML_1wV5p2gHaEo?w=233&h=180&c=7&r=0&o=7&dpr=1.3&pid=1.7&rm=3";
+//        JSONObject result = uploadImageByUrl(imageUrl);
+        String result = uploadImageByUrl(imageUrl);
+        System.out.println(result);
+    }
 }
