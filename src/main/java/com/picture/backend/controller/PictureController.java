@@ -80,6 +80,22 @@ public class PictureController {
     }
 
     /**
+     * 从公共图库收藏照片到其他空间
+     * @param pictureCollectRequest
+     * @param request
+     */
+    @SaSpaceCheckPermission(value = SpaceUserPermissionConstant.PICTURE_UPLOAD)
+    @PostMapping("/collect")
+    public BaseResponse<PictureVO> collectPictureToOtherFromPublic(@RequestBody PictureCollectRequest pictureCollectRequest,HttpServletRequest request) {
+        if (pictureCollectRequest == null) {
+            throw new BusinessException(ErrorCode.PARAMS_ERROR,"请求参数为空");
+        }
+        User loginUser = userService.getLoginUser(request);
+        PictureVO pictureVO= pictureService.collectPictureToOtherFromPublic(pictureCollectRequest, loginUser);
+        return ResultUtils.success(pictureVO);
+    }
+
+    /**
      * 通过url上传图片（可重新上传）
      */
     @PostMapping("/upload/url")
@@ -355,13 +371,16 @@ public class PictureController {
      */
     @PostMapping("/search/picture")
     public BaseResponse<List<ImageSearchResult>> searchPictureByPicture(@RequestBody SearchPictureByPictureRequest searchPictureByPictureRequest) {
+        // 校验参数
         if (searchPictureByPictureRequest == null) {
             throw new BusinessException(ErrorCode.PARAMS_ERROR);
         }
+        // 图片id不能为空
         Long pictureId = searchPictureByPictureRequest.getPictureId();
         if (pictureId == null || pictureId <= 0){
             throw new BusinessException(ErrorCode.PARAMS_ERROR);
         }
+        // 拿到图片完整对象
         Picture oldPicture = pictureService.getById(pictureId);
         if (oldPicture == null){
             throw new BusinessException(ErrorCode.NOT_FOUND_ERROR);

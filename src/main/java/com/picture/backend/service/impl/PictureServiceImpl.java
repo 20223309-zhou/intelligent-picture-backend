@@ -2,6 +2,7 @@ package com.picture.backend.service.impl;
 
 import cn.hutool.core.bean.BeanUtil;
 import cn.hutool.core.collection.CollUtil;
+import cn.hutool.core.date.DateTime;
 import cn.hutool.core.util.ObjUtil;
 import cn.hutool.core.util.StrUtil;
 import cn.hutool.json.JSONUtil;
@@ -11,7 +12,9 @@ import com.baomidou.mybatisplus.extension.service.impl.ServiceImpl;
 import com.picture.backend.api.aliyunai.AliYunAiApi;
 import com.picture.backend.api.aliyunai.model.CreateOutPaintingTaskRequest;
 import com.picture.backend.api.aliyunai.model.CreateOutPaintingTaskResponse;
+import com.picture.backend.common.BaseResponse;
 import com.picture.backend.common.DeleteRequest;
+import com.picture.backend.config.RedisConfig;
 import com.picture.backend.exception.BusinessException;
 import com.picture.backend.exception.ErrorCode;
 import com.picture.backend.manager.CosManager;
@@ -36,7 +39,10 @@ import org.jsoup.Jsoup;
 import org.jsoup.nodes.Document;
 import org.jsoup.nodes.Element;
 import org.jsoup.select.Elements;
+import org.redisson.api.RLock;
+import org.redisson.api.RedissonClient;
 import org.springframework.beans.BeanUtils;
+import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.scheduling.annotation.Async;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -48,6 +54,9 @@ import java.awt.*;
 import java.io.IOException;
 import java.util.*;
 import java.util.List;
+import java.util.concurrent.TimeUnit;
+import java.util.concurrent.locks.Lock;
+import java.util.concurrent.locks.ReentrantLock;
 import java.util.stream.Collectors;
 
 /**
@@ -79,6 +88,9 @@ public class PictureServiceImpl extends ServiceImpl<PictureMapper, Picture> impl
 
     @Resource
     private AliYunAiApi aliYunAiApi;
+
+    @Resource
+    private RedissonClient redissonClient;
 
     /**
      * 上传或更新图片
@@ -156,7 +168,9 @@ public class PictureServiceImpl extends ServiceImpl<PictureMapper, Picture> impl
         if (inputSource instanceof String) {
             pictureUploadTemplate = urlPictureUpload;
         }
+        // 先上传图片到对象存储,返回图片信息
         UploadPictureResult uploadPictureResult = pictureUploadTemplate.uploadPicture(inputSource, uploadPathPrefix);
+        // 处理图片信息准备入库
         // 构造要入库的图片信息
         Picture picture = new Picture();
         picture.setSpaceId(spaceId);
@@ -212,14 +226,12 @@ public class PictureServiceImpl extends ServiceImpl<PictureMapper, Picture> impl
                             .eq(Space::getId, finalSpaceId)
                             .setSql("totalSize = totalSize + " + picture.getPicSize() + " - " + finalOldPicture.getPicSize())
                             .update();
-
                 } else {
                     update = spaceService.lambdaUpdate()
                             .eq(Space::getId, finalSpaceId)
                             .setSql("totalSize = totalSize + " + picture.getPicSize())
                             .setSql("totalCount = totalCount + 1")
                             .update();
-
                 }
                 if (!update) {
                     throw new BusinessException(ErrorCode.OPERATION_ERROR, "额度更新失败");
@@ -592,6 +604,114 @@ public class PictureServiceImpl extends ServiceImpl<PictureMapper, Picture> impl
             }
         }
         return uploadCount;
+    }
+
+    /**
+     * 收藏公共图库图片到其他空间
+     *
+     * @param pictureCollectRequest
+     * @param  loginUser
+     */
+    @Override
+    public PictureVO collectPictureToOtherFromPublic(PictureCollectRequest pictureCollectRequest, User loginUser) {
+        Long id = pictureCollectRequest.getId();
+        Long spaceId = pictureCollectRequest.getSpaceId();
+        // 基本校验
+        if (id == null || id <= 0){
+            throw new BusinessException(ErrorCode.PARAMS_ERROR,"图片id错误");
+        }
+        if (spaceId == null || spaceId <= 0){
+            throw new BusinessException(ErrorCode.PARAMS_ERROR,"空间id错误");
+        }
+        // 校验空间
+        Space toSpace = spaceService.getById(spaceId);
+        if (toSpace == null){
+            throw new BusinessException(ErrorCode.NOT_FOUND_ERROR, "空间不存在");
+        }
+        // 校验图片
+        Picture oldPicture = getById(id);
+        if (oldPicture == null) {
+            throw new BusinessException(ErrorCode.NOT_FOUND_ERROR, "收藏的图片不存在");
+        }
+        if (oldPicture.getSpaceId() != null) {
+            throw new BusinessException(ErrorCode.OPERATION_ERROR, "只能收藏公共图库的图片！");
+        }
+        // 校验同一空间下不能重复收藏
+         String localKey = String.format("picture:collect:%d:%d", spaceId, id);
+        RLock lock = redissonClient.getLock(localKey);
+        try {
+            boolean b = lock.tryLock(1, 10, TimeUnit.SECONDS);
+            if (b){
+                // 检查空间额度是否还充足
+                if (toSpace.getTotalCount() >= toSpace.getMaxCount()) {
+                    throw new BusinessException(ErrorCode.OPERATION_ERROR, "空间条数不足");
+                }
+                if (toSpace.getTotalSize() >= toSpace.getMaxSize()) {
+                    throw new BusinessException(ErrorCode.OPERATION_ERROR, "空间大小不足");
+                }
+                Long count = lambdaQuery()
+                        .eq(Picture::getSourceId, id)
+                        .eq(Picture::getSpaceId, spaceId)
+                        .count();
+                if (count > 0){
+                    throw new BusinessException(ErrorCode.OPERATION_ERROR, "不能重复收藏图片到同一空间");
+                }
+            }
+        } catch (InterruptedException e) {
+                throw new BusinessException(ErrorCode.SYSTEM_ERROR, "空间校验被中断");
+        }finally {
+            // 释放锁
+            lock.unlock();
+        }
+
+        String originUrl = oldPicture.getOriginUrl();
+        String uploadPathPrefix = String.format("space/%s", spaceId);
+        UploadPictureResult uploadPictureResult = urlPictureUpload.uploadPicture(originUrl, uploadPathPrefix);
+        // 构造要入库的图片信息
+        Picture picture = new Picture();
+        picture.setSpaceId(spaceId);
+        picture.setSourceId(id);
+        // 入库的图片url
+        picture.setOriginUrl(uploadPictureResult.getOriginUrl());
+        picture.setUrl(uploadPictureResult.getUrl());
+        picture.setThumbnailUrl(uploadPictureResult.getThumbnailUrl());
+        picture.setName(oldPicture.getName());
+        // 设置图片主色调
+        picture.setPicColor(uploadPictureResult.getPicColor());
+        picture.setPicSize(uploadPictureResult.getPicSize());
+        picture.setPicWidth(uploadPictureResult.getPicWidth());
+        picture.setPicHeight(uploadPictureResult.getPicHeight());
+        picture.setPicScale(uploadPictureResult.getPicScale());
+        picture.setPicFormat(uploadPictureResult.getPicFormat());
+        // 设置图片基本信息
+        picture.setUserId(loginUser.getId());
+        picture.setIntroduction(oldPicture.getIntroduction());
+        picture.setCreateTime(DateTime.now());
+        picture.setEditTime(DateTime.now());
+        picture.setCategory(oldPicture.getCategory());
+        picture.setTags(oldPicture.getTags());
+        // 补充审核参数
+        fillReviewParams(picture,loginUser);
+        // 开启事务
+        transactionTemplate.execute(status -> {
+            boolean result = this.saveOrUpdate(picture);
+            if (!result) {
+                throw new BusinessException(ErrorCode.OPERATION_ERROR, "图片保存失败");
+            }
+            // 更新空间的使用情况
+            boolean update = spaceService.lambdaUpdate()
+                    .eq(Space::getId, spaceId)
+                    .apply("totalCount < maxCount")
+                    .apply("totalSize + " + picture.getPicSize() + " <= maxSize")
+                    .setSql("totalSize = totalSize + " + picture.getPicSize())
+                    .setSql("totalCount = totalCount + 1")
+                    .update();
+            if (!update) {
+                throw new BusinessException(ErrorCode.OPERATION_ERROR, "额度更新失败");
+            }
+            return picture;
+        });
+        return PictureVO.objToVo(picture);
     }
 
     /**

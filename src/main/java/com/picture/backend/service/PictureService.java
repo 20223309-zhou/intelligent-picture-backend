@@ -3,17 +3,14 @@ package com.picture.backend.service;
 import com.baomidou.mybatisplus.core.conditions.query.QueryWrapper;
 import com.baomidou.mybatisplus.extension.plugins.pagination.Page;
 import com.picture.backend.api.aliyunai.model.CreateOutPaintingTaskResponse;
+import com.picture.backend.common.BaseResponse;
 import com.picture.backend.common.DeleteRequest;
-import com.picture.backend.exception.BusinessException;
-import com.picture.backend.exception.ErrorCode;
 import com.picture.backend.model.dto.picture.*;
 import com.picture.backend.model.entity.Picture;
 import com.baomidou.mybatisplus.extension.service.IService;
 import com.picture.backend.model.entity.User;
 import com.picture.backend.model.vo.PictureVO;
 import org.springframework.scheduling.annotation.Async;
-import org.springframework.transaction.annotation.Transactional;
-import org.springframework.web.multipart.MultipartFile;
 
 import javax.servlet.http.HttpServletRequest;
 import java.util.List;
@@ -149,4 +146,12 @@ public interface PictureService extends IService<Picture> {
      * @return
      */
     CreateOutPaintingTaskResponse createPictureOutPaintingTask(CreatePictureOutPaintingTaskRequest createPictureOutPaintingTaskRequest, User loginUser);
+
+    /**
+     * 收藏图片到其他空间
+     *
+     * @param pictureCollectRequest
+     * @param loginUser
+     */
+    PictureVO collectPictureToOtherFromPublic(PictureCollectRequest pictureCollectRequest, User loginUser);
 }

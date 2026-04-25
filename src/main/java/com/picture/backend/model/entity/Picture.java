@@ -132,6 +132,10 @@ public class Picture {
      */
     private String picColor;
 
+    /**
+     * 图片来源 id
+     */
+    private Long sourceId;
 
 
 }
