@@ -13,6 +13,7 @@ public class ColorSimilarUtils {
 
     /**
      * 计算两个颜色的相似度
+     * 数值越高，颜色越相似
      *
      * @param color1 第一个颜色
      * @param color2 第二个颜色

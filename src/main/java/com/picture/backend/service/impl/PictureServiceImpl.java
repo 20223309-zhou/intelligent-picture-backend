@@ -12,9 +12,8 @@ import com.baomidou.mybatisplus.extension.service.impl.ServiceImpl;
 import com.picture.backend.api.aliyunai.AliYunAiApi;
 import com.picture.backend.api.aliyunai.model.CreateOutPaintingTaskRequest;
 import com.picture.backend.api.aliyunai.model.CreateOutPaintingTaskResponse;
-import com.picture.backend.common.BaseResponse;
+import com.picture.backend.api.aliyunai.model.CreateTextGenPictureRequest;
 import com.picture.backend.common.DeleteRequest;
-import com.picture.backend.config.RedisConfig;
 import com.picture.backend.exception.BusinessException;
 import com.picture.backend.exception.ErrorCode;
 import com.picture.backend.manager.CosManager;
@@ -42,7 +41,6 @@ import org.jsoup.select.Elements;
 import org.redisson.api.RLock;
 import org.redisson.api.RedissonClient;
 import org.springframework.beans.BeanUtils;
-import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.scheduling.annotation.Async;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -55,8 +53,6 @@ import java.io.IOException;
 import java.util.*;
 import java.util.List;
 import java.util.concurrent.TimeUnit;
-import java.util.concurrent.locks.Lock;
-import java.util.concurrent.locks.ReentrantLock;
 import java.util.stream.Collectors;
 
 /**
@@ -900,6 +896,16 @@ public class PictureServiceImpl extends ServiceImpl<PictureMapper, Picture> impl
         }
     }
 
+    /**
+     * 文生图
+     *
+     * @param request
+     * @return
+     */
+    @Override
+    public String TextGenPicture(CreateTextGenPictureRequest request) {
+        return aliYunAiApi.createTextGenPictureTask(request);
+    }
 
     /**
      * 创建图片扩容任务
@@ -946,11 +952,6 @@ public class PictureServiceImpl extends ServiceImpl<PictureMapper, Picture> impl
         // 创建任务
         return aliYunAiApi.createOutPaintingTask(taskRequest);
     }
-
-
-
-
-
 }
 
 

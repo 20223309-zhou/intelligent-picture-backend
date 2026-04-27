@@ -22,4 +22,5 @@ cos:
     bucket: ${COS_BUCKET}
 
 aliYunAi:
+  model: wanx2.1-t2i-plus
   apiKey: ${ALIYUN_AI_API_KEY}

@@ -2,12 +2,13 @@ package com.picture.backend.controller;
 
 import cn.hutool.core.lang.TypeReference;
 import cn.hutool.core.util.StrUtil;
-import cn.hutool.crypto.digest.DigestUtil;
 import cn.hutool.json.JSONUtil;
+import com.alibaba.dashscope.aigc.imagesynthesis.ImageSynthesisResult;
 import com.baomidou.mybatisplus.extension.plugins.pagination.Page;
 import com.picture.backend.annotation.AuthCheck;
 import com.picture.backend.api.aliyunai.AliYunAiApi;
 import com.picture.backend.api.aliyunai.model.CreateOutPaintingTaskResponse;
+import com.picture.backend.api.aliyunai.model.CreateTextGenPictureRequest;
 import com.picture.backend.api.aliyunai.model.GetOutPaintingTaskResponse;
 import com.picture.backend.api.imagesearch.ImageSearchApiFacade;
 import com.picture.backend.api.imagesearch.model.ImageSearchResult;
@@ -34,7 +35,6 @@ import com.picture.backend.service.SpaceService;
 import com.picture.backend.service.UserService;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.BeanUtils;
-import org.springframework.beans.propertyeditors.CurrencyEditor;
 import org.springframework.util.DigestUtils;
 import org.springframework.web.bind.annotation.*;
 import org.springframework.web.multipart.MultipartFile;
@@ -42,7 +42,6 @@ import org.springframework.web.multipart.MultipartFile;
 import javax.annotation.Resource;
 import javax.servlet.http.HttpServletRequest;
 import java.util.Arrays;
-import java.util.Date;
 import java.util.List;
 
 import static com.picture.backend.constant.UserConstant.USER_LOGIN_STATE;
@@ -439,6 +438,7 @@ public class PictureController {
      * 查询 AI 扩图任务
      */
     @GetMapping("/out_painting/get_task")
+    @SaSpaceCheckPermission(value = SpaceUserPermissionConstant.PICTURE_EDIT)
     public BaseResponse<GetOutPaintingTaskResponse> getPictureOutPaintingTask(String taskId) {
         if (StrUtil.isBlank(taskId)) {
             throw new BusinessException(ErrorCode.PARAMS_ERROR);
@@ -447,7 +447,31 @@ public class PictureController {
         return ResultUtils.success(task);
     }
 
+    /**
+     * 创建 AI 生图任务
+     */
+    @PostMapping("/text_picture/create_task")
+    @SaSpaceCheckPermission(value = SpaceUserPermissionConstant.PICTURE_EDIT)
+    public BaseResponse<String> createPictureFromTextTask(
+            @RequestBody CreateTextGenPictureRequest textGenPictureRequest) {
+        if (textGenPictureRequest == null || textGenPictureRequest.getPrompt() == null) {
+            throw new BusinessException(ErrorCode.PARAMS_ERROR);
+        }
+        String taskId = pictureService.TextGenPicture(textGenPictureRequest);
+        return ResultUtils.success(taskId);
+    }
 
-
+    /**
+     * 查询 AI 生图任务
+     */
+    @GetMapping("/text_picture/get_task")
+    @SaSpaceCheckPermission(value = SpaceUserPermissionConstant.PICTURE_EDIT)
+    public BaseResponse<ImageSynthesisResult> getPictureFromTextTask(String taskId) {
+        if (StrUtil.isBlank(taskId)) {
+            throw new BusinessException(ErrorCode.PARAMS_ERROR);
+        }
+        ImageSynthesisResult result = aliYunAiApi.getTextGenPictureTask(taskId);
+        return ResultUtils.success(result);
+    }
 
 }

@@ -3,7 +3,7 @@ package com.picture.backend.service;
 import com.baomidou.mybatisplus.core.conditions.query.QueryWrapper;
 import com.baomidou.mybatisplus.extension.plugins.pagination.Page;
 import com.picture.backend.api.aliyunai.model.CreateOutPaintingTaskResponse;
-import com.picture.backend.common.BaseResponse;
+import com.picture.backend.api.aliyunai.model.CreateTextGenPictureRequest;
 import com.picture.backend.common.DeleteRequest;
 import com.picture.backend.model.dto.picture.*;
 import com.picture.backend.model.entity.Picture;
@@ -154,4 +154,12 @@ public interface PictureService extends IService<Picture> {
      * @param loginUser
      */
     PictureVO collectPictureToOtherFromPublic(PictureCollectRequest pictureCollectRequest, User loginUser);
+
+    /**
+     * 文本生成图片
+     *
+     * @param request
+     * @return 生成任务Id
+     */
+    String TextGenPicture(CreateTextGenPictureRequest request);
 }
