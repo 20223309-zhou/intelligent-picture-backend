@@ -27,42 +27,23 @@ public class PictureEditEventWorkHandler implements WorkHandler<PictureEditEvent
     @Resource
     private UserService userService;
 
-    /**
-     * 消费者处理消息
-     * 从disruptor中获取消息，并调用对应的消息处理方法
-     */
     @Override
     public void onEvent(PictureEditEvent event) throws Exception {
-        // 获取消息
-        PictureEditRequestMessage pictureEditRequestMessage = event.getPictureEditRequestMessage();
-        // 获取session
+        PictureEditRequestMessage req = event.getPictureEditRequestMessage();
         WebSocketSession session = event.getSession();
         User user = event.getUser();
         Long pictureId = event.getPictureId();
-        // 获取到消息类别
-        String type = pictureEditRequestMessage.getType();
-        // 获取消息类别枚举
-        PictureEditMessageTypeEnum pictureEditMessageTypeEnum = PictureEditMessageTypeEnum.valueOf(type);
-        // 调用对应的消息处理方法
-        switch (pictureEditMessageTypeEnum) {
-            case ENTER_EDIT:
-                // 处理进入编辑状态的消息
-                pictureEditHandler.handleEnterEditMessage(pictureEditRequestMessage, session, user, pictureId);
-                break;
-            case EDIT_ACTION:
-                // 处理执行编辑操作的消息
-                pictureEditHandler.handleEditActionMessage(pictureEditRequestMessage, session, user, pictureId);
-                break;
-            case EXIT_EDIT:
-                // 处理退出编辑状态的消息
-                pictureEditHandler.handleExitEditMessage(pictureEditRequestMessage, session, user, pictureId);
-                break;
-            default:
-                PictureEditResponseMessage pictureEditResponseMessage = new PictureEditResponseMessage();
-                pictureEditResponseMessage.setType(PictureEditMessageTypeEnum.ERROR.getValue());
-                pictureEditResponseMessage.setMessage("消息类型错误");
-                pictureEditResponseMessage.setUser(userService.getUserVO(user));
-                session.sendMessage(new TextMessage(JSONUtil.toJsonStr(pictureEditResponseMessage)));
+
+        String type = req.getType();
+        PictureEditMessageTypeEnum enumType = PictureEditMessageTypeEnum.getEnumByValue(type);
+        if (enumType == PictureEditMessageTypeEnum.EDIT_ACTION) {
+            pictureEditHandler.handleEditActionMessage(req, session, user, pictureId);
+        } else {
+            PictureEditResponseMessage err = new PictureEditResponseMessage();
+            err.setType(PictureEditMessageTypeEnum.ERROR.getValue());
+            err.setMessage("消息类型错误");
+            err.setUser(userService.getUserVO(user));
+            session.sendMessage(new TextMessage(JSONUtil.toJsonStr(err)));
         }
     }
 }

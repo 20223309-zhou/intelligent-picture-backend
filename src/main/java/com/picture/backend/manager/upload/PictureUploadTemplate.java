@@ -36,7 +36,7 @@ public abstract class PictureUploadTemplate {
      */  
     public final UploadPictureResult uploadPicture(Object inputSource, String uploadPathPrefix) {
         // 1. 校验图片  
-        validPicture(inputSource);  
+        validPicture(inputSource);
   
         // 2. 图片上传地址  
         String uuid = RandomUtil.randomString(16);
