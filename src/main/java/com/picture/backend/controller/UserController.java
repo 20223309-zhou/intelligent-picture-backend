@@ -72,6 +72,7 @@ public class UserController {
      * 用户退出登录
      */
     @PostMapping("/logout")
+    @AuthCheck(mustRole = UserConstant.DEFAULT_ROLE)
     public BaseResponse<Boolean> userLogout(HttpServletRequest request) {
         if (request == null){
             throw new BusinessException(ErrorCode.PARAMS_ERROR);
@@ -122,6 +123,7 @@ public class UserController {
      * 根据 id 获取包装类
      */
     @GetMapping("/get/vo")
+    @AuthCheck(mustRole = UserConstant.DEFAULT_ROLE)
     public BaseResponse<UserVO> getUserVOById(long id) {
         BaseResponse<User> response = getUserById(id);
         User user = response.getData();

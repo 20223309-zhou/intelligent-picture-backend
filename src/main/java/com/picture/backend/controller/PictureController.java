@@ -315,8 +315,30 @@ public class PictureController {
     @GetMapping("/tag_category")
     public BaseResponse<PictureTagCategory> listPictureTagCategory() {
         PictureTagCategory pictureTagCategory = new PictureTagCategory();
-        List<String> tagList = Arrays.asList("热门", "搞笑", "生活", "高清", "艺术", "校园", "背景", "简历", "创意", "游戏", "动漫");
-        List<String> categoryList = Arrays.asList("模板", "电商", "表情包", "素材", "海报");
+        List<String> tagList = Arrays.asList(
+                "热门",
+                "自然", "风景", "山川", "海洋", "日落", "星空",
+                "动物", "猫咪", "狗狗", "鸟类", "野生动物",
+                "人物", "肖像", "街拍", "旅行", "纪实",
+                "美食", "甜品", "饮品", "烹饪", "食材",
+                "建筑", "城市", "室内", "极简", "工业",
+                "艺术", "插画", "水彩", "油画", "素描", "3D",
+                "平面设计", "UI设计", "品牌", "字体", "图标",
+                "科技", "编程", "数码", "人工智能", "汽车",
+                "植物", "花卉", "多肉", "庭院", "森林",
+                "节日", "生日", "圣诞", "新年", "婚礼",
+                "情感", "治愈", "励志", "孤独", "温暖",
+                "复古", "胶片", "黑白", "电影感", "光影",
+                "抽象", "纹理", "图案", "色彩", "渐变",
+                "教育", "办公", "医疗", "体育", "音乐"
+        );
+        List<String> categoryList = Arrays.asList(
+                "全部", "壁纸", "头像", "背景",
+                "模板", "海报", "banner", "封面",
+                "电商", "素材", "表情包",
+                "插画", "摄影", "设计", "UI",
+                "教育", "科技", "美食", "旅行", "时尚"
+        );
         pictureTagCategory.setTagList(tagList);
         pictureTagCategory.setCategoryList(categoryList);
         return ResultUtils.success(pictureTagCategory);
