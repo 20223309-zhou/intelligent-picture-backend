@@ -333,7 +333,7 @@ public class PictureController {
                 "教育", "办公", "医疗", "体育", "音乐"
         );
         List<String> categoryList = Arrays.asList(
-                "全部", "壁纸", "头像", "背景",
+                "壁纸", "头像", "背景",
                 "模板", "海报", "banner", "封面",
                 "电商", "素材", "表情包",
                 "插画", "摄影", "设计", "UI",

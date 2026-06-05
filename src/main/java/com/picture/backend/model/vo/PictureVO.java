@@ -24,14 +24,19 @@ public class PictureVO implements Serializable {
     private String thumbnailUrl;
 
     /**
+     * 原图 url
+     */
+    private String originUrl;
+
+    /**
      * 权限列表
      */
     private List<String> permissionList = new ArrayList<>();
 
-    /**  
-     * 图片 url  
-     */  
-    private String url;  
+    /**
+     * 图片 url
+     */
+    private String url;
   
     /**  
      * 图片名称  
