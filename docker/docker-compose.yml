@@ -1,0 +1,71 @@
+version: "3.8"
+
+services:
+  mysql:
+    image: mysql:8
+    container_name: picture-mysql
+    ports:
+      - "3307:3306"
+    environment:
+      TZ: Asia/Shanghai
+      MYSQL_ROOT_PASSWORD: 1234
+      MYSQL_DATABASE: intelligent_picture
+    volumes:
+      - mysql-data:/var/lib/mysql
+      - ./intelligent-picture-backend/sql/create_table.sql:/docker-entrypoint-initdb.d/init.sql
+    networks:
+      - picture-network
+    restart: always
+
+  redis:
+    image: redis:7.2
+    container_name: picture-redis
+    ports:
+      - "6379:6379"
+    command: ["redis-server", "--requirepass", "123456"]
+    networks:
+      - picture-network
+    restart: always
+
+  backend:
+    build:
+      context: ./intelligent-picture-backend
+      dockerfile: Dockerfile
+    container_name: picture-backend
+    ports:
+      - "8088:8088"
+    depends_on:
+      - mysql
+      - redis
+    environment:
+      SPRING_PROFILES_ACTIVE: pro
+      COS_HOST: ${COS_HOST}
+      COS_SECRET_ID: ${COS_SECRET_ID}
+      COS_SECRET_KEY: ${COS_SECRET_KEY}
+      COS_REGION: ${COS_REGION}
+      COS_BUCKET: ${COS_BUCKET}
+      ALIYUN_AI_API_KEY: ${ALIYUN_AI_API_KEY}
+    networks:
+      - picture-network
+    restart: always
+
+  nginx:
+    image: nginx:1.20
+    container_name: picture-nginx
+    ports:
+      - "80:80"
+    volumes:
+      - ./nginx.conf:/etc/nginx/nginx.conf
+      - ./intelligent-picture-frontend/dist:/usr/share/nginx/html
+    depends_on:
+      - backend
+    networks:
+      - picture-network
+    restart: always
+
+volumes:
+  mysql-data:
+
+networks:
+  picture-network:
+    name: picture-network
